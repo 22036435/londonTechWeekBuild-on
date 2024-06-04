@@ -1,0 +1,9 @@
+body {
+    margin: 0;
+    overflow: hidden;
+    font-family: Arial, sans-serif; /* Default font for the entire body */
+}
+
+canvas {
+    display: block;
+}
