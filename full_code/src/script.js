@@ -1,11 +1,27 @@
+/**
+ * Importing libraries
+ */
+
+// Importing Three.js
 import * as THREE from 'three';
+
+// Importing OrbitControls to be able to move the camera with our mouse
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+
+// Importing GLTFLoader to be able to load 3D models
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
-import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
+
+// Importing gsap to animate the camera
 import gsap from 'gsap';
+
+// Importing shaders
 import firefliesVertexShader from './shaders/fireflies/vertex.glsl';
 import firefliesFragmentShader from './shaders/fireflies/fragment.glsl';
+
+// Importing VRButton to be able to enter VR mode
+import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
+// Importing XRControllerModelFactory to be able to add controllers to our VR scene
 import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js';
 
 // Canvas
@@ -18,7 +34,31 @@ const scene = new THREE.Scene();
  * Loaders
  */
 const textureLoader = new THREE.TextureLoader();
+
+//Environment map loader
 const cubeTextureLoader = new THREE.CubeTextureLoader();
+
+// Draco loader
+const dracoLoader = new DRACOLoader();
+dracoLoader.setDecoderPath('draco/');
+
+// GLTF loader
+const gltfLoader = new GLTFLoader();
+gltfLoader.setDRACOLoader(dracoLoader);
+
+/**
+ * Environment map
+ */
+const environmentMap = cubeTextureLoader.load([
+    '3/px.png',
+    '3/nx.png',
+    '3/py.png',
+    '3/ny.png',
+    '3/pz.png',
+    '3/nz.png'
+]);
+
+scene.background = environmentMap;
 
 /**
  * Fireflies
@@ -56,28 +96,6 @@ const fireflies = new THREE.Points(firefliesGeometry, firefliesMaterial);
 scene.add(fireflies);
 
 /**
- * Environment map
- */
-const environmentMap = cubeTextureLoader.load([
-    '3/px.png',
-    '3/nx.png',
-    '3/py.png',
-    '3/ny.png',
-    '3/pz.png',
-    '3/nz.png'
-]);
-
-scene.background = environmentMap;
-
-// Draco loader
-const dracoLoader = new DRACOLoader();
-dracoLoader.setDecoderPath('draco/');
-
-// GLTF loader
-const gltfLoader = new GLTFLoader();
-gltfLoader.setDRACOLoader(dracoLoader);
-
-/**
  * Texture
  */
 const bakedTexture = textureLoader.load('baked.jpg');
@@ -113,6 +131,7 @@ const plainClothtMaterial = new THREE.MeshBasicMaterial({ color: 0xffffe5 });
  * Model
  */
 let mixer;
+
 gltfLoader.load('WORKSHOP.glb', (gltf) => {
     gltf.scene.traverse((child) => {
         if (child.isMesh) {
@@ -171,22 +190,28 @@ gltfLoader.load('WORKSHOP.glb', (gltf) => {
     window.addEventListener('keydown', (event) => {
         const key = event.key.toLowerCase();
         const arrow = document.getElementById(`arrow-${key.replace('arrow', '')}`);
+        const explanationBox = document.getElementById('explanation-box');
         if (arrow) {
             arrow.classList.add('pressed');
         }
-
+    
+ 
         switch (event.key) {
             case 'ArrowUp':
                 animateCamera(-3, 53, 50, { x: set2Mesh.position.x - 10, y: set2Mesh.position.y - 5, z: set2Mesh.position.z });
+                explanationBox.style.display = 'none';
                 break;
             case 'ArrowRight':
                 animateCamera(9, 37, 55, { x: set1Mesh.position.x - 10, y: set1Mesh.position.y, z: set1Mesh.position.z });
+                explanationBox.style.display = 'none';
                 break;
             case 'ArrowLeft':
                 animateCamera(10, 35, 55, { x: set3Mesh.position.x + 5, y: set3Mesh.position.y, z: set3Mesh.position.z });
+                explanationBox.style.display = 'none';
                 break;
             case 'ArrowDown':
                 animateCamera(-60, 50, 148.19, { x: entityMesh.position.x + 70, y: entityMesh.position.y - 10, z: entityMesh.position.z });
+                explanationBox.style.display = 'block';
                 break;
         }
     });
@@ -208,6 +233,17 @@ const sizes = {
     height: window.innerHeight
 };
 
+/**
+ * Camera
+ */
+const camera = new THREE.PerspectiveCamera(45, sizes.width / sizes.height, 0.1, 1000);
+camera.position.set(-60, 50, 148.19);
+scene.add(camera);
+
+// Orbit controls
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+
 window.addEventListener('resize', () => {
     sizes.width = window.innerWidth;
     sizes.height = window.innerHeight;
@@ -222,16 +258,6 @@ window.addEventListener('resize', () => {
 });
 
 /**
- * Camera
- */
-const camera = new THREE.PerspectiveCamera(45, sizes.width / sizes.height, 0.1, 1000);
-camera.position.set(-60, 50, 148.19);
-scene.add(camera);
-
-const controls = new OrbitControls(camera, canvas);
-controls.enableDamping = true;
-
-/**
  * Renderer
  */
 const renderer = new THREE.WebGLRenderer({
@@ -240,6 +266,7 @@ const renderer = new THREE.WebGLRenderer({
 });
 renderer.setSize(sizes.width, sizes.height);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
 renderer.xr.enabled = true;
 
 document.body.appendChild(VRButton.createButton(renderer));
@@ -317,17 +344,16 @@ function handleController(controller, delta) {
 
 const clock = new THREE.Clock();
 
-// Update tick function to handle movement
 const tick = () => {
     const delta = clock.getDelta();
 
     controls.update();
 
-    firefliesMaterial.uniforms.uTime.value += delta;
-
     if (mixer) {
         mixer.update(delta);
     }
+
+    firefliesMaterial.uniforms.uTime.value += delta;
 
     handleController(controller1, delta);
     handleController(controller2, delta);
